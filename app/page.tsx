@@ -8,7 +8,7 @@ type Msg = { role: Role; content: string };
 
 function systemPrompt(mode: Mode) {
   if (mode === "study") {
-    return `You are an AI Study Assistant for university students.
+    return `You are an AI Study Assistant.
 Return in this structure:
 1) Simple explanation
 2) Short notes (bullets)
@@ -26,23 +26,23 @@ const INITIAL: Record<Mode, Msg[]> = {
     {
       role: "assistant",
       content:
-        "Hi! 👋\n\n✅ **Study**: ask any topic (e.g., Explain CNN)\n✅ **Career**: ask for major/career plan (e.g., Recommend my major)",
+        "Hi! 👋\n\n✅ Study: ask any topic (e.g., Explain CNN)\n✅ Career: ask (e.g., Recommend my major)",
     },
   ],
   career: [
     {
       role: "assistant",
       content:
-        "Hi! 👋 I can recommend your major & career path.\n\nStart by telling me:\n1) Your favorite subjects\n2) What you enjoy (coding/robotics/security/data)\n3) Your goal (job/research/freelance)\n4) Time you can spend per week",
+        "Hi! 👋 I can recommend your major & career path.\n\nTell me:\n1) Favorite subjects\n2) Interests (coding/design/data/security)\n3) Goal (job/research/freelance)\n4) Time per week",
     },
   ],
 };
 
 export default function Home() {
   const [mode, setMode] = useState<Mode>("study");
-  const [modeKey, setModeKey] = useState(0);
+  const [transitionKey, setTransitionKey] = useState(0);
 
-  // ✅ Separate histories for each mode
+  // Separate chat per mode
   const [history, setHistory] = useState<Record<Mode, Msg[]>>({
     study: INITIAL.study,
     career: INITIAL.career,
@@ -60,7 +60,7 @@ export default function Home() {
   );
 
   useEffect(() => {
-    setModeKey((k) => k + 1); // smooth transition re-mount
+    setTransitionKey((k) => k + 1); // remount for smooth fade
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, [mode]);
 
@@ -76,8 +76,6 @@ export default function Home() {
     if (!text || loading) return;
 
     const newMsgs: Msg[] = [...messages, { role: "user", content: text }];
-
-    // Update the active mode history immediately
     setHistory((prev) => ({ ...prev, [mode]: newMsgs }));
     setInput("");
     setLoading(true);
@@ -104,7 +102,7 @@ export default function Home() {
       if (!res.ok) {
         append(mode, {
           role: "assistant",
-          content: `⚠️ ${data?.error || "Request failed"}\n${data?.hint ? `\nHint: ${data.hint}` : ""}`,
+          content: `⚠️ ${data?.error || "Request failed"}${data?.hint ? `\n\nHint: ${data.hint}` : ""}`,
         });
         return;
       }
@@ -125,24 +123,19 @@ export default function Home() {
     }));
   }
 
-  function resetAll() {
-    setHistory({
-      study: INITIAL.study,
-      career: INITIAL.career,
-    });
-  }
-
   return (
-    <div className="min-h-screen bg-[radial-gradient(80%_60%_at_50%_0%,rgba(255,255,255,0.10)_0%,rgba(0,0,0,0)_60%),linear-gradient(to_bottom,#050505,#000)] text-zinc-100">
+    <div className="min-h-screen text-zinc-100 bg-[radial-gradient(60%_40%_at_50%_0%,rgba(255,255,255,0.10)_0%,rgba(0,0,0,0)_60%),linear-gradient(to_bottom,#070707,#000)]">
+      {/* Background glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-32 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full blur-3xl opacity-20 bg-white" />
-        <div className="absolute top-44 -left-24 h-80 w-80 rounded-full blur-3xl opacity-15 bg-white" />
-        <div className="absolute bottom-0 -right-24 h-80 w-80 rounded-full blur-3xl opacity-10 bg-white" />
+        <div className="absolute -top-40 left-1/2 h-[420px] w-[420px] -translate-x-1/2 rounded-full blur-3xl opacity-20 bg-white" />
+        <div className="absolute top-52 -left-32 h-[360px] w-[360px] rounded-full blur-3xl opacity-10 bg-white" />
+        <div className="absolute bottom-0 -right-40 h-[420px] w-[420px] rounded-full blur-3xl opacity-10 bg-white" />
       </div>
 
       <div className="relative mx-auto max-w-5xl px-4 py-8 sm:py-10">
+        {/* Header */}
         <div className="glass-card">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
                 AI Smart Study & Career Assistant
@@ -152,43 +145,41 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setMode("study")}
-                className={`mode-pill ${mode === "study" ? "mode-pill-active" : ""}`}
-              >
-                Study
-              </button>
-              <button
-                onClick={() => setMode("career")}
-                className={`mode-pill ${mode === "career" ? "mode-pill-active" : ""}`}
-              >
-                Career
-              </button>
-              <button onClick={resetCurrentMode} className="mode-pill">
+            <div className="flex items-center gap-2">
+              <div className="segmented">
+                <button
+                  onClick={() => setMode("study")}
+                  className={`seg-btn ${mode === "study" ? "seg-active" : ""}`}
+                >
+                  Study
+                </button>
+                <button
+                  onClick={() => setMode("career")}
+                  className={`seg-btn ${mode === "career" ? "seg-active" : ""}`}
+                >
+                  Career
+                </button>
+              </div>
+
+              <button onClick={resetCurrentMode} className="pill">
                 Reset
-              </button>
-              <button onClick={resetAll} className="mode-pill">
-                Reset All
               </button>
             </div>
           </div>
 
-          <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-zinc-900/60">
-            <div
-              className={`h-full w-1/2 rounded-full transition-all duration-500 ease-out ${
-                mode === "study" ? "translate-x-0 bg-white/90" : "translate-x-full bg-white/90"
-              }`}
-            />
+          {/* animated underline */}
+          <div className="mt-4 h-[2px] w-full bg-zinc-900/60 rounded-full overflow-hidden">
+            <div className={`h-full w-1/2 bg-white/90 transition-all duration-500 ease-out ${mode === "study" ? "translate-x-0" : "translate-x-full"}`} />
           </div>
         </div>
 
-        <div key={modeKey} className="mt-4 chat-card animate-fadeSlide">
-          <div className="h-[520px] overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4">
+        {/* Chat */}
+        <div key={transitionKey} className="mt-4 chat-card animate-fadeSlide">
+          <div className="h-[540px] overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-ai"}`}>
-                  <div className="whitespace-pre-wrap leading-relaxed text-sm">{m.content}</div>
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</div>
                 </div>
               </div>
             ))}
@@ -197,9 +188,9 @@ export default function Home() {
               <div className="flex justify-start">
                 <div className="bubble bubble-ai">
                   <div className="flex items-center gap-2 text-sm text-zinc-300">
-                    <span className="h-2 w-2 rounded-full bg-zinc-400 animate-pulse" />
-                    <span className="h-2 w-2 rounded-full bg-zinc-400 animate-pulse [animation-delay:120ms]" />
-                    <span className="h-2 w-2 rounded-full bg-zinc-400 animate-pulse [animation-delay:240ms]" />
+                    <span className="dot" />
+                    <span className="dot [animation-delay:120ms]" />
+                    <span className="dot [animation-delay:240ms]" />
                     <span className="ml-2">Thinking…</span>
                   </div>
                 </div>
@@ -209,6 +200,7 @@ export default function Home() {
             <div ref={bottomRef} />
           </div>
 
+          {/* Input */}
           <div className="border-t border-zinc-800/60 p-3 sm:p-4">
             <div className="flex gap-2">
               <input
@@ -232,6 +224,7 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Footer */}
         <footer className="mt-6 text-center text-xs text-zinc-500">
           Developed by <span className="text-zinc-200 font-medium">ariyan_nelay</span>
         </footer>
