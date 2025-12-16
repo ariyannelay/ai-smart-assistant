@@ -21,16 +21,35 @@ First ask 6 short questions (interests, skills, favorite subjects, CGPA, time/we
 then recommend: 2 majors + reasons, 3 career paths, skill roadmap, 30-day plan.`;
 }
 
-export default function Home() {
-  const [mode, setMode] = useState<Mode>("study");
-  const [modeKey, setModeKey] = useState(0); // for smooth transition re-mount
-  const [messages, setMessages] = useState<Msg[]>([
+const INITIAL: Record<Mode, Msg[]> = {
+  study: [
     {
       role: "assistant",
       content:
         "Hi! 👋\n\n✅ **Study**: ask any topic (e.g., Explain CNN)\n✅ **Career**: ask for major/career plan (e.g., Recommend my major)",
     },
-  ]);
+  ],
+  career: [
+    {
+      role: "assistant",
+      content:
+        "Hi! 👋 I can recommend your major & career path.\n\nStart by telling me:\n1) Your favorite subjects\n2) What you enjoy (coding/robotics/security/data)\n3) Your goal (job/research/freelance)\n4) Time you can spend per week",
+    },
+  ],
+};
+
+export default function Home() {
+  const [mode, setMode] = useState<Mode>("study");
+  const [modeKey, setModeKey] = useState(0);
+
+  // ✅ Separate histories for each mode
+  const [history, setHistory] = useState<Record<Mode, Msg[]>>({
+    study: INITIAL.study,
+    career: INITIAL.career,
+  });
+
+  const messages = history[mode];
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -41,16 +60,25 @@ export default function Home() {
   );
 
   useEffect(() => {
-    // Smooth transition when mode changes
-    setModeKey((k) => k + 1);
+    setModeKey((k) => k + 1); // smooth transition re-mount
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, [mode]);
+
+  function append(modeToUpdate: Mode, msg: Msg) {
+    setHistory((prev) => ({
+      ...prev,
+      [modeToUpdate]: [...prev[modeToUpdate], msg],
+    }));
+  }
 
   async function send() {
     const text = input.trim();
     if (!text || loading) return;
 
     const newMsgs: Msg[] = [...messages, { role: "user", content: text }];
-    setMessages(newMsgs);
+
+    // Update the active mode history immediately
+    setHistory((prev) => ({ ...prev, [mode]: newMsgs }));
     setInput("");
     setLoading(true);
 
@@ -65,7 +93,6 @@ export default function Home() {
         }),
       });
 
-      // robust parsing (handles non-JSON errors too)
       const raw = await res.text();
       let data: any;
       try {
@@ -75,38 +102,38 @@ export default function Home() {
       }
 
       if (!res.ok) {
-        setMessages([
-          ...newMsgs,
-          {
-            role: "assistant",
-            content: `⚠️ ${data?.error || "Request failed"}\n${data?.hint ? `\nHint: ${data.hint}` : ""}`,
-          },
-        ]);
+        append(mode, {
+          role: "assistant",
+          content: `⚠️ ${data?.error || "Request failed"}\n${data?.hint ? `\nHint: ${data.hint}` : ""}`,
+        });
         return;
       }
 
-      setMessages([...newMsgs, { role: "assistant", content: data.output }]);
+      append(mode, { role: "assistant", content: data.output });
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 60);
     } catch {
-      setMessages([...newMsgs, { role: "assistant", content: "⚠️ Network error. Please try again." }]);
+      append(mode, { role: "assistant", content: "⚠️ Network error. Please try again." });
     } finally {
       setLoading(false);
     }
   }
 
-  function resetChat() {
-    setMessages([
-      {
-        role: "assistant",
-        content:
-          "Chat reset ✅\n\nTry:\n- Study: Explain Linear Regression\n- Career: Recommend my major",
-      },
-    ]);
+  function resetCurrentMode() {
+    setHistory((prev) => ({
+      ...prev,
+      [mode]: mode === "study" ? INITIAL.study : INITIAL.career,
+    }));
+  }
+
+  function resetAll() {
+    setHistory({
+      study: INITIAL.study,
+      career: INITIAL.career,
+    });
   }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(80%_60%_at_50%_0%,rgba(255,255,255,0.10)_0%,rgba(0,0,0,0)_60%),linear-gradient(to_bottom,#050505,#000)] text-zinc-100">
-      {/* background blobs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-32 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full blur-3xl opacity-20 bg-white" />
         <div className="absolute top-44 -left-24 h-80 w-80 rounded-full blur-3xl opacity-15 bg-white" />
@@ -114,7 +141,6 @@ export default function Home() {
       </div>
 
       <div className="relative mx-auto max-w-5xl px-4 py-8 sm:py-10">
-        {/* Top Card */}
         <div className="glass-card">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -139,13 +165,15 @@ export default function Home() {
               >
                 Career
               </button>
-              <button onClick={resetChat} className="mode-pill">
+              <button onClick={resetCurrentMode} className="mode-pill">
                 Reset
+              </button>
+              <button onClick={resetAll} className="mode-pill">
+                Reset All
               </button>
             </div>
           </div>
 
-          {/* mode indicator bar */}
           <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-zinc-900/60">
             <div
               className={`h-full w-1/2 rounded-full transition-all duration-500 ease-out ${
@@ -155,7 +183,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Chat Card */}
         <div key={modeKey} className="mt-4 chat-card animate-fadeSlide">
           <div className="h-[520px] overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4">
             {messages.map((m, i) => (
@@ -182,7 +209,6 @@ export default function Home() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
           <div className="border-t border-zinc-800/60 p-3 sm:p-4">
             <div className="flex gap-2">
               <input
@@ -206,7 +232,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Footer */}
         <footer className="mt-6 text-center text-xs text-zinc-500">
           Developed by <span className="text-zinc-200 font-medium">ariyan_nelay</span>
         </footer>
