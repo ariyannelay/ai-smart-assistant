@@ -42,7 +42,6 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>("study");
   const [transitionKey, setTransitionKey] = useState(0);
 
-  // Separate chat per mode
   const [history, setHistory] = useState<Record<Mode, Msg[]>>({
     study: INITIAL.study,
     career: INITIAL.career,
@@ -60,7 +59,7 @@ export default function Home() {
   );
 
   useEffect(() => {
-    setTransitionKey((k) => k + 1); // remount for smooth fade
+    setTransitionKey((k) => k + 1);
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, [mode]);
 
@@ -71,11 +70,20 @@ export default function Home() {
     }));
   }
 
-  async function send() {
-    const text = input.trim();
-    if (!text || loading) return;
+  // ✅ bubble click → input set + auto send
+  function quickAsk(text: string) {
+    if (loading) return;
+    setInput(text);
+    setTimeout(() => {
+      sendText(text);
+    }, 0);
+  }
 
-    const newMsgs: Msg[] = [...messages, { role: "user", content: text }];
+  async function sendText(text: string) {
+    const t = text.trim();
+    if (!t || loading) return;
+
+    const newMsgs: Msg[] = [...messages, { role: "user", content: t }];
     setHistory((prev) => ({ ...prev, [mode]: newMsgs }));
     setInput("");
     setLoading(true);
@@ -102,7 +110,9 @@ export default function Home() {
       if (!res.ok) {
         append(mode, {
           role: "assistant",
-          content: `⚠️ ${data?.error || "Request failed"}${data?.hint ? `\n\nHint: ${data.hint}` : ""}`,
+          content: `⚠️ ${data?.error || "Request failed"}${
+            data?.hint ? `\n\nHint: ${data.hint}` : ""
+          }`,
         });
         return;
       }
@@ -114,6 +124,10 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function send() {
+    await sendText(input);
   }
 
   function resetCurrentMode() {
@@ -135,7 +149,7 @@ export default function Home() {
       <div className="relative mx-auto max-w-5xl px-4 py-8 sm:py-10">
         {/* Header */}
         <div className="glass-card">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
                 AI Smart Study & Career Assistant
@@ -145,7 +159,8 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* ✅ Buttons separated properly */}
+            <div className="flex flex-wrap items-center gap-3">
               <div className="segmented">
                 <button
                   onClick={() => setMode("study")}
@@ -167,9 +182,53 @@ export default function Home() {
             </div>
           </div>
 
+          {/* ✅ Bubble buttons */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {mode === "study" ? (
+              <>
+                <button className="bubble-btn" onClick={() => quickAsk("Explain CNN in simple words")}>
+                  Explain CNN
+                </button>
+                <button className="bubble-btn" onClick={() => quickAsk("Give me short notes on Linear Regression")}>
+                  Linear Regression Notes
+                </button>
+                <button className="bubble-btn" onClick={() => quickAsk("Make 5 MCQ on OOP concepts with answers")}>
+                  OOP MCQ
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="bubble-btn"
+                  onClick={() =>
+                    quickAsk("Recommend my major (DS vs Cyber vs Robotics). Ask me questions first.")
+                  }
+                >
+                  Recommend Major
+                </button>
+                <button
+                  className="bubble-btn"
+                  onClick={() => quickAsk("Make a 30-day roadmap for getting a software internship")}
+                >
+                  30-day Roadmap
+                </button>
+                <button
+                  className="bubble-btn"
+                  onClick={() => quickAsk("Suggest 3 career paths based on my interests and CGPA")}
+                >
+                  Career Paths
+                </button>
+              </>
+            )}
+          </div>
+
           {/* animated underline */}
           <div className="mt-4 h-[2px] w-full bg-zinc-900/60 rounded-full overflow-hidden">
-            <div className={`h-full w-1/2 bg-white/90 transition-all duration-500 ease-out ${mode === "study" ? "translate-x-0" : "translate-x-full"}`} />
+            <div
+              className={`h-full w-1/2 bg-white/90 transition-all duration-500 ease-out ${
+                mode === "study" ? "translate-x-0" : "translate-x-full"
+              }`}
+            />
           </div>
         </div>
 
@@ -177,7 +236,10 @@ export default function Home() {
         <div key={transitionKey} className="mt-4 chat-card animate-fadeSlide">
           <div className="h-[540px] overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4">
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                key={i}
+                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+              >
                 <div className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-ai"}`}>
                   <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</div>
                 </div>
@@ -212,7 +274,8 @@ export default function Home() {
               />
               <button
                 onClick={send}
-                className="rounded-xl px-5 py-3 text-sm font-semibold bg-white text-black hover:opacity-90 transition active:scale-[0.98]"
+                disabled={loading}
+                className="rounded-xl px-5 py-3 text-sm font-semibold bg-white text-black hover:opacity-90 transition active:scale-[0.98] disabled:opacity-60"
               >
                 Send
               </button>
