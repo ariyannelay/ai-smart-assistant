@@ -7,11 +7,23 @@ type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
 
 function getIP(req: Request) {
-  // Vercel usually sends x-forwarded-for
-  const xf = req.headers.get("x-forwarded-for");
-  if (xf) return xf.split(",")[0].trim();
-  return "unknown";
+  const candidates = [
+    "x-forwarded-for",
+    "x-real-ip",
+    "cf-connecting-ip",
+    "x-vercel-forwarded-for",
+  ];
+
+  for (const h of candidates) {
+    const v = req.headers.get(h);
+    if (v) return v.split(",")[0].trim();
+  }
+
+  // fallback: at least separate some users
+  const ua = req.headers.get("user-agent") || "ua";
+  return `unknown:${ua.slice(0, 40)}`;
 }
+
 
 function rateLimit(ip: string, limit = 10, windowMs = 60_000) {
   const now = Date.now();
